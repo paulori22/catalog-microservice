@@ -1,11 +1,17 @@
 import {inject} from '@loopback/core';
+import {repository} from '@loopback/repository';
 import {
   Request,
   ResponseObject,
   RestBindings,
   get,
+  getModelSchemaRef,
+  post,
+  requestBody,
   response,
 } from '@loopback/rest';
+import {Category} from '../models';
+import {CategoryRepository} from '../repositories';
 
 /**
  * OpenAPI response for ping()
@@ -38,7 +44,31 @@ const PING_RESPONSE: ResponseObject = {
  * A simple controller to bounce back http requests
  */
 export class PingController {
-  constructor(@inject(RestBindings.Http.REQUEST) private req: Request) {}
+  constructor(
+    @inject(RestBindings.Http.REQUEST) private req: Request,
+    @repository(CategoryRepository) private categoryRepo: CategoryRepository,
+  ) {}
+
+  @get('/category')
+  async index(): Promise<Category[]> {
+    return this.categoryRepo.find();
+  }
+
+  @post('/category')
+  async store(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: getModelSchemaRef(Category, {
+            title: 'New Category',
+          }),
+        },
+      },
+    })
+    category: Category,
+  ): Promise<Category> {
+    return this.categoryRepo.create(category);
+  }
 
   // Map to `GET /ping`
   @get('/ping')
