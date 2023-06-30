@@ -1,9 +1,9 @@
-import {CatalogMicroserviceApplication} from '../..';
 import {
+  Client,
   createRestAppClient,
   givenHttpServerConfig,
-  Client,
 } from '@loopback/testlab';
+import {CatalogMicroserviceApplication} from '../..';
 
 export async function setupApplication(): Promise<AppWithClient> {
   const restConfig = givenHttpServerConfig({
@@ -21,6 +21,7 @@ export async function setupApplication(): Promise<AppWithClient> {
   await app.boot();
   await app.start();
 
+  // @ts-ignore
   const client = createRestAppClient(app);
 
   return {app, client};
