@@ -1,93 +1,182 @@
 import {
-  ApplicationConfig,
+  Application,
   Context,
   CoreBindings,
+  MetadataInspector,
   Server,
   inject,
 } from '@loopback/core';
 import {repository} from '@loopback/repository';
-import {Channel, Connection, Replies, connect} from 'amqplib';
-import {Category} from '../models';
+import {
+  AmqpConnectionManager,
+  AmqpConnectionManagerOptions,
+  ChannelWrapper,
+  connect,
+} from 'amqp-connection-manager';
+import {Channel, ConfirmChannel, Options} from 'amqplib';
+import {
+  RABBITMQ_SUBSCRIBE_DECORATOR,
+  RabbitmqSubscribeMetadata,
+} from '../decorators';
+import {RabbitmqBindings} from '../keys';
 import {CategoryRepository} from '../repositories';
+
+export interface RabbitmqConfig {
+  uri: string;
+  connOptions?: AmqpConnectionManagerOptions;
+  exchanges?: {name: string; type: string; options?: Options.AssertExchange}[];
+}
 
 export class RabbitmqServer extends Context implements Server {
   private _listening: boolean;
-  conn: Connection;
+  private _conn: AmqpConnectionManager;
+  private _channelManager: ChannelWrapper;
   channel: Channel;
 
   constructor(
+    @inject(CoreBindings.APPLICATION_INSTANCE) public app: Application,
     @repository(CategoryRepository) private categoryRepo: CategoryRepository,
-    @inject(CoreBindings.APPLICATION_CONFIG) private config: ApplicationConfig,
+    @inject(RabbitmqBindings.CONFIG) private config: RabbitmqConfig,
   ) {
-    super();
+    super(app);
   }
 
   async start(): Promise<void> {
-    this.conn = await connect({
-      hostname: 'rabbitmq',
-      username: 'admin',
-      password: 'admin',
+    this._conn = connect([this.config.uri], this.config.connOptions);
+    this._channelManager = this._conn.createChannel();
+    this._channelManager.on('connect', () => {
+      this._listening = true;
+      console.log('Successfully connected to RabbitMQ channel');
     });
-    this._listening = true;
-    this.boot();
+    this._channelManager.on('error', (error, {name}) => {
+      this._listening = false;
+      console.log(
+        `Failed to setup a RabbitMQ channel - name: ${name} | error: ${error}`,
+      );
+    });
+    await this.setupExchanges();
+    await this.bindSubscribers();
+
     return undefined;
   }
 
-  async boot() {
-    this.channel = await this.conn.createChannel();
-    const queue: Replies.AssertQueue = await this.channel.assertQueue(
-      'micro-catalog/sync-video',
-    );
-    const exchange: Replies.AssertExchange = await this.channel.assertExchange(
-      'amq.topic',
-      'topic',
-    );
-
-    await this.channel.bindQueue(queue.queue, exchange.exchange, 'model.*.*');
-
-    await this.channel.consume(queue.queue, message => {
-      if (!message) {
+  private async setupExchanges() {
+    return this.channelManager.addSetup(async (channel: ConfirmChannel) => {
+      if (!this.config.exchanges) {
         return;
       }
-      const data = JSON.parse(message.content.toString());
-      const [model, event] = message.fields.routingKey.split('.').slice(1);
-      this.sync({model, event, data})
-        .then(() => this.channel.ack(message))
-        .catch(error => {
-          console.log(error);
-          this.channel.reject(message, false);
-        });
+      await Promise.all(
+        this.config.exchanges.map(exchange =>
+          channel.assertExchange(
+            exchange.name,
+            exchange.type,
+            exchange.options,
+          ),
+        ),
+      );
     });
   }
 
-  async sync({
-    model,
-    event,
-    data,
-  }: {
-    model: string;
-    event: string;
-    data: Category;
-  }) {
-    if (model === 'category') {
-      switch (event) {
-        case 'created':
-          await this.categoryRepo.create({
-            ...data,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+  private async bindSubscribers() {
+    this.getSubscribers().map(async item => {
+      await this.channelManager.addSetup(async (channel: ConfirmChannel) => {
+        const {exchange, queue, routingKey, queueOptions} = item.metadata;
+        const assetQueue = await channel.assertQueue(
+          queue ?? '',
+          queueOptions ?? undefined,
+        );
+        const routingKeys = Array.isArray(routingKey)
+          ? routingKey
+          : [routingKey];
+
+        await Promise.all(
+          routingKeys.map(r =>
+            channel.bindQueue(assetQueue.queue, exchange, r),
+          ),
+        );
+        await this.consume({
+          channel,
+          queue: assetQueue.queue,
+          method: item.method,
+        });
+      });
+    });
+  }
+
+  private getSubscribers(): {
+    method: Function;
+    metadata: RabbitmqSubscribeMetadata;
+  }[] {
+    const bindings = this.find('services.*');
+
+    return bindings
+      .map(binding => {
+        const metadata =
+          MetadataInspector.getAllMethodMetadata<RabbitmqSubscribeMetadata>(
+            RABBITMQ_SUBSCRIBE_DECORATOR,
+            binding.valueConstructor?.prototype,
+          );
+        if (!metadata) {
+          return [];
+        }
+        const methods = [];
+        for (const methodName in metadata) {
+          const service = this.getSync(binding.key) as any;
+
+          methods.push({
+            method: service[methodName].bind(service),
+            metadata: metadata[methodName],
           });
-          break;
-        case 'updated':
-          await this.categoryRepo.updateById(data.id, data);
-          break;
-        case 'deleted':
-          await this.categoryRepo.deleteById(data.id);
-          break;
-        default:
-          break;
+        }
+
+        return methods;
+      })
+      .reduce((collection, item) => {
+        collection.push(...item);
+        return collection;
+      });
+
+    /*         const service = this.getSync<CategorySyncService>(
+          'services.CategorySyncService',
+        );
+        const metadata =
+          MetadataInspector.getAllMethodMetadata<RabbitmqSubscribeMetadata>(
+            RABBITMQ_SUBSCRIBE_DECORATOR,
+            service,
+          );
+        console.log(metadata); */
+  }
+
+  private async consume({
+    channel,
+    queue,
+    method,
+  }: {
+    channel: ConfirmChannel;
+    queue: string;
+    method: Function;
+  }) {
+    await channel.consume(queue, async message => {
+      try {
+        if (!message) {
+          throw new Error('Received null message');
+        }
+        const content = message.content;
+        if (content) {
+          let data;
+          try {
+            data = JSON.parse(content.toString());
+          } catch (error) {
+            data = null;
+          }
+          console.log(data);
+          await method({data, message, channel});
+          channel.ack(message);
+        }
+      } catch (error) {
+        console.error(error);
       }
-    }
+    });
   }
 
   async stop(): Promise<void> {
@@ -98,5 +187,13 @@ export class RabbitmqServer extends Context implements Server {
 
   get listening(): boolean {
     return this._listening;
+  }
+
+  get conn(): AmqpConnectionManager {
+    return this._conn;
+  }
+
+  get channelManager(): ChannelWrapper {
+    return this._channelManager;
   }
 }
