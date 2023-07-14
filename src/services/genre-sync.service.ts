@@ -13,7 +13,7 @@ export class GenreSyncService {
 
   @rabbitmqSubscribe({
     exchange: 'amq.topic',
-    queue: '',
+    queue: 'micro-catalog/sync-videos/genre',
     routingKey: 'model.genre.*',
   })
   async handler({data, message}: {data: Genre; message: ConsumeMessage}) {

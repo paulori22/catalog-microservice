@@ -33,15 +33,15 @@ const config = {
     description: {
       type: 'text',
     },
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+    type: {
+      type: 'byte',
+    },
     is_active: {
       type: 'boolean',
     },
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     created_at: {
       type: 'date',
     },
-    // eslint-disable-next-line @typescript-eslint/naming-convention
     updated_at: {
       type: 'date',
     },

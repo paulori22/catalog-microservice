@@ -1,4 +1,4 @@
-import {/* inject, */ BindingScope, injectable} from '@loopback/core';
+import { /* inject, */ BindingScope, injectable} from '@loopback/core';
 import {repository} from '@loopback/repository';
 import {ConsumeMessage} from 'amqplib';
 import {rabbitmqSubscribe} from '../decorators';
@@ -13,7 +13,7 @@ export class CategorySyncService {
 
   @rabbitmqSubscribe({
     exchange: 'amq.topic',
-    queue: '',
+    queue: 'micro-catalog/sync-videos/category',
     routingKey: 'model.category.*',
   })
   async handler({data, message}: {data: Category; message: ConsumeMessage}) {

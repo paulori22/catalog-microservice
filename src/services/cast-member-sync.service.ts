@@ -12,8 +12,8 @@ export class CastMemberSyncService {
 
   @rabbitmqSubscribe({
     exchange: 'amq.topic',
-    queue: '',
-    routingKey: 'model.castMember.*',
+    queue: 'micro-catalog/sync-videos/cast_member',
+    routingKey: 'model.cast_member.*',
   })
   async handler({data, message}: {data: CastMember; message: ConsumeMessagemeMessage}) {
     console.log({data, message});
