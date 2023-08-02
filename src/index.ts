@@ -37,6 +37,7 @@ if (require.main === module) {
     },
     rabbitmq: {
       uri: process.env.RABBITMQ_URI,
+      defaultHandlerError: parseInt(process.env.RABBITMQ_HANDLER_ERROR ?? '0'),
       //exchanges: [{name: 'test1', type: 'direct'}],
     },
   };
