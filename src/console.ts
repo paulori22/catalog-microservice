@@ -9,16 +9,16 @@ if (!command) {
   showAvailableCommands();
 }
 
-const commandKey = Object.keys(commands).find(
-  c => commands[c].command === command,
-);
+const commandKey: string = Object.keys(commands).find(
+  c => (commands as any)[c].command === command,
+)!;
 
 if (!commandKey) {
   showAvailableCommands();
 }
 chalk.green(commandKey);
 
-const commandInstance = new commands[commandKey]();
+const commandInstance = new (commands as any)[commandKey]();
 
 commandInstance.run().catch(console.error);
 
@@ -29,7 +29,9 @@ function showAvailableCommands() {
   console.log('');
   for (const c of Object.keys(commands)) {
     console.log(
-      `- ${chalk.green(commands[c].command)} - ${commands[c].description}`,
+      `- ${chalk.green((commands as any)[c].command)} - ${
+        (commands as any)[c].description
+      }`,
     );
   }
   console.log('');
