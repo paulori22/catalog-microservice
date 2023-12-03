@@ -1,4 +1,4 @@
-import {DefaultCrudRepository} from '@loopback/repository';
+import {DefaultCrudRepository, EntityNotFoundError} from '@loopback/repository';
 import {Message} from 'amqplib';
 import {pick} from 'lodash';
 import {ValidatorService} from './validator.service';
@@ -6,6 +6,15 @@ import {ValidatorService} from './validator.service';
 export interface SyncOptions {
   repo: DefaultCrudRepository<any, any>;
   data: any;
+  message: Message;
+}
+
+export interface SyncRelationOptions {
+  id: string;
+  repo: DefaultCrudRepository<any, any>;
+  relationField: string;
+  relationIds: string[];
+  relationRepo: DefaultCrudRepository<any, any>;
   message: Message;
 }
 
@@ -57,5 +66,49 @@ export abstract class BaseModelSyncService {
       ...(exists && {options: {partial: true}}),
     });
     return exists ? repo.updateById(id, entity) : repo.create(entity);
+  }
+
+  async syncRelation({
+    id,
+    repo,
+    relationField,
+    relationIds,
+    relationRepo,
+    message,
+  }: SyncRelationOptions) {
+    const fieldsRelation = this.extractFieldsRelation(repo, relationField);
+    const collection = await relationRepo.find({
+      where: {
+        or: relationIds.map(id => ({id})),
+      },
+      fields: fieldsRelation,
+    });
+
+    if (!collection.length) {
+      const error = new EntityNotFoundError(
+        relationRepo.entityClass,
+        relationIds,
+      );
+      error.name = 'EntityNotFound';
+      throw error;
+    }
+
+    const event = this.getEvent(message);
+    if (event === 'attached') {
+      await (repo as any).attachRelation(id, relationField, collection);
+    }
+  }
+
+  protected extractFieldsRelation(
+    repo: SyncRelationOptions['repo'],
+    relationField: SyncRelationOptions['relationField'],
+  ) {
+    return Object.keys(
+      repo.modelClass.definition.properties[relationField].jsonSchema.items
+        .properties,
+    ).reduce((obj: any, field: string) => {
+      obj[field] = true;
+      return obj;
+    }, {});
   }
 }
