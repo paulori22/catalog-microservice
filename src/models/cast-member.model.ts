@@ -5,7 +5,7 @@ export enum CastMemberType {
   ACTOR = 2,
 }
 
-@model({settings: {strict: false}})
+@model()
 export class CastMember extends Entity {
   @property({
     type: 'string',

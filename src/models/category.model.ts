@@ -5,7 +5,7 @@ export interface SmallCategory {
   name: string;
   is_active: boolean;
 }
-@model({settings: {strict: false}})
+@model()
 export class Category extends Entity {
   @property({
     type: 'string',
