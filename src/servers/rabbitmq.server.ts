@@ -190,7 +190,7 @@ export class RabbitmqServer extends Context implements Server {
     queue: string;
     method: Function;
   }) {
-    await channel.consume(queue, async message => {
+    await channel.consume(queue, message => {
       try {
         if (!message) {
           throw new Error('Received null message');
@@ -203,7 +203,7 @@ export class RabbitmqServer extends Context implements Server {
           } catch (error) {
             data = null;
           }
-          const responseType = await method({data, message, channel});
+          const responseType = method({data, message, channel});
           this.dispatchResponse(channel, message, responseType);
         }
       } catch (error) {

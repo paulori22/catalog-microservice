@@ -1,8 +1,8 @@
 import {Client, expect} from '@loopback/testlab';
 import {CatalogMicroserviceApplication} from '../..';
-import {setupApplication} from './test-helper';
+import {clearDB, setupApplication} from './test-helper';
 
-describe('PingController', () => {
+describe('Category', () => {
   let app: CatalogMicroserviceApplication;
   let client: Client;
 
@@ -10,12 +10,17 @@ describe('PingController', () => {
     ({app, client} = await setupApplication());
   });
 
+  beforeEach(clearDB);
+
   after(async () => {
     await app.stop();
   });
 
-  it('invokes GET /ping', async () => {
-    const res = await client.get('/ping?msg=world').expect(200);
-    expect(res.body).to.containEql({greeting: 'Hello from LoopBack'});
+  it('invokes GET /categories', async () => {
+    const response = await client.get('/categories').expect(200);
+    expect(response.body).to.containDeep({
+      results: [],
+      count: 0,
+    });
   });
 });

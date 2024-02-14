@@ -51,7 +51,7 @@ export class BaseRepository<
     };
 
     const db: Client = this.dataSource.connector?.db;
-    db.update_by_query(document);
+    await db.update_by_query(document);
   }
 
   async updateRelation(
@@ -106,6 +106,6 @@ export class BaseRepository<
     };
 
     const db: Client = this.dataSource.connector?.db;
-    db.update_by_query(document);
+    await db.update_by_query(document);
   }
 }

@@ -24,7 +24,7 @@ export class CategorySyncService extends BaseModelSyncService {
     },
   })
   async handler({data, message}: {data: any; message: Message}) {
-    this.sync({
+    await this.sync({
       repo: this.repo,
       data,
       message,

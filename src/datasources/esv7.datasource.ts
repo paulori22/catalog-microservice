@@ -1,7 +1,8 @@
 import {inject, lifeCycleObserver, LifeCycleObserver} from '@loopback/core';
 import {juggler} from '@loopback/repository';
+import {Client} from 'es6';
 
-const config = {
+export const dbConfig = {
   name: 'esv7',
   connector: 'esv6',
   index: 'catalog',
@@ -109,12 +110,23 @@ export class Esv7DataSource
   implements LifeCycleObserver
 {
   static dataSourceName = 'esv7';
-  static readonly defaultConfig = config;
+  static readonly defaultConfig = dbConfig;
 
   constructor(
     @inject('datasources.config.esv7', {optional: true})
-    dsConfig: object = config,
+    dsConfig: object = dbConfig,
   ) {
     super(dsConfig);
+  }
+
+  public async deleteAllDocuments() {
+    const index = (this as any).adapter.settings.index;
+    const client: Client = (this as any).adapter.db;
+    await client.deleteByQuery({
+      index,
+      body: {
+        query: {match_all: {}},
+      },
+    });
   }
 }

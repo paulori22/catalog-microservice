@@ -22,7 +22,7 @@ export class GenreSyncService extends BaseModelSyncService {
     routingKey: 'model.genre.*',
   })
   async handler({data, message}: {data: any; message: Message}) {
-    this.sync({
+    await this.sync({
       repo: this.repo,
       data,
       message,
@@ -35,7 +35,7 @@ export class GenreSyncService extends BaseModelSyncService {
     routingKey: 'model.genre_categories.*',
   })
   async handlerCategories({data, message}: {data: any; message: Message}) {
-    this.syncRelation({
+    await this.syncRelation({
       id: data.id,
       repo: this.repo,
       relationField: 'categories',

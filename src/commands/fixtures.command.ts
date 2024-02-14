@@ -1,6 +1,5 @@
 import {DefaultCrudRepository} from '@loopback/repository';
 import {default as chalk} from 'chalk';
-import {Client} from 'es7';
 import {CatalogMicroserviceApplication} from '../application';
 import {config} from '../config';
 import {Esv7DataSource} from '../datasources';
@@ -18,7 +17,8 @@ export class FixturesCommand extends BaseCommand {
     console.log(chalk.green('Fixture data'));
     await this.bootApp();
     console.log(chalk.green('Deleting all documents'));
-    await this.deleteAllDocuments();
+    const datasource: Esv7DataSource = this.app.getSync('datasource.esv7');
+    await datasource.deleteAllDocuments();
     console.log(chalk.green('Deleted all documents'));
     console.log(chalk.green('Creating documents'));
     await this.populateFakeData();
@@ -28,20 +28,6 @@ export class FixturesCommand extends BaseCommand {
   private async bootApp() {
     this.app = new CatalogMicroserviceApplication(config);
     await this.app.boot();
-  }
-
-  private async deleteAllDocuments() {
-    const datasource: Esv7DataSource = this.app.getSync('datasources.esv7');
-    //@ts-ignore
-    const index = datasource.adapter.settings.index;
-    //@ts-ignore
-    const client: Client = datasource.adapter.db;
-    await client.deleteByQuery({
-      index,
-      body: {
-        query: {match_all: {}},
-      },
-    });
   }
 
   private async populateFakeData() {

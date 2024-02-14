@@ -21,7 +21,7 @@ export class CastMemberSyncService extends BaseModelSyncService {
     routingKey: 'model.cast_member.*',
   })
   async handler({data, message}: {data: any; message: Message}) {
-    this.sync({
+    await this.sync({
       repo: this.repo,
       data,
       message,

@@ -3,5 +3,6 @@ module.exports = {
   rules: {
     '@typescript-eslint/camelCase': 0,
     '@typescript-eslint/no-explicit-any': 0,
+    '@typescript-eslint/naming-convention': ['warn'],
   },
 };

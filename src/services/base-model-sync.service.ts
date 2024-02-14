@@ -79,7 +79,7 @@ export abstract class BaseModelSyncService {
     const fieldsRelation = this.extractFieldsRelation(repo, relationField);
     const collection = await relationRepo.find({
       where: {
-        or: relationIds.map(id => ({id})),
+        or: relationIds.map(id_relation => ({id: id_relation})),
       },
       fields: fieldsRelation,
     });
